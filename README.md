@@ -94,12 +94,15 @@ See [Issue #1](https://github.com/belmontlegion/playlist-buddy/issues/1) for MVP
 - Image caching system
 - Basic GUI framework
 - Data models
+- **Library tree view with tri-state selection**
+- **Connection dialog for easy setup**
+- **Playlist builder panel with runtime meter**
+- **Deduplication and ordering**
 
 ### In Progress 🚧
-- Library tree view with tri-state selection
-- Playlist builder panel
-- User-aware filtering
-- Static playlist creation
+- User-aware filtering (watch states from Tautulli)
+- Dry-run preview improvements
+- Episode metadata display
 
 ### Planned 📅
 - Templates (Catch-Up Tonight, Season Sampler, etc.)

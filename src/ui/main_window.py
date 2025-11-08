@@ -1,6 +1,6 @@
 """Main application window."""
 
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
     QSplitter, QMenuBar, QMenu, QToolBar, QStatusBar, QMessageBox
@@ -9,6 +9,7 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction
 
 from src.ui.library_tree import LibraryTreeWidget
+from src.ui.playlist_builder import PlaylistBuilderWidget
 from src.ui.connection_dialog import ConnectionDialog
 from src.api.plex_client import PlexClient
 from src.api.tautulli_client import TautulliClient
@@ -57,14 +58,17 @@ class MainWindow(QMainWindow):
         self.library_tree.library_changed.connect(self._on_library_changed)
         self.library_tree.selection_changed.connect(self._on_selection_changed)
         
-        # Right panel - Playlist builder (placeholder for now)
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-        right_layout.addWidget(self._create_placeholder("Playlist Builder\n\nSelected items will appear here"))
+        # Right panel - Playlist builder
+        self.playlist_builder = PlaylistBuilderWidget()
+        self.playlist_builder.create_playlist_requested.connect(self._create_playlist)
+        self.playlist_builder.dry_run_requested.connect(self._dry_run_preview)
+        self.playlist_builder.playlist_name_input.textChanged.connect(
+            lambda: self.playlist_builder._update_button_states()
+        )
         
         # Add panels to splitter
         splitter.addWidget(self.library_tree)
-        splitter.addWidget(right_panel)
+        splitter.addWidget(self.playlist_builder)
         splitter.setSizes([800, 600])
         
         main_layout.addWidget(splitter)
@@ -292,3 +296,96 @@ class MainWindow(QMainWindow):
         current_lib = self.library_tree.library_combo.currentData()
         if current_lib:
             self._on_library_changed(current_lib)
+    
+    def _create_playlist(self, name: str, episode_ids: List[str]):
+        """
+        Create a playlist on Plex server.
+        
+        Args:
+            name: Playlist name
+            episode_ids: List of episode rating keys
+        """
+        if not self.plex_client:
+            QMessageBox.warning(self, "Not Connected", "Please connect to Plex first.")
+            return
+        
+        try:
+            # Get episode objects
+            episodes = []
+            for ep_id in episode_ids:
+                try:
+                    episode = self.plex_client.server.fetchItem(int(ep_id))
+                    episodes.append(episode)
+                except Exception as e:
+                    print(f"Warning: Could not fetch episode {ep_id}: {e}")
+            
+            if not episodes:
+                QMessageBox.warning(self, "No Episodes", "No valid episodes to add to playlist.")
+                return
+            
+            # Create playlist
+            playlist = self.plex_client.create_playlist(name, episodes)
+            
+            if playlist:
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Playlist '{name}' created successfully with {len(episodes)} episode(s)!"
+                )
+                self.statusBar().showMessage(f"Created playlist '{name}'")
+            else:
+                QMessageBox.critical(self, "Error", "Failed to create playlist.")
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error creating playlist: {str(e)}")
+    
+    def _dry_run_preview(self, name: str, episode_ids: List[str]):
+        """
+        Show dry-run preview of playlist creation.
+        
+        Args:
+            name: Playlist name
+            episode_ids: List of episode rating keys
+        """
+        if not self.plex_client:
+            QMessageBox.warning(self, "Not Connected", "Please connect to Plex first.")
+            return
+        
+        # Build preview text
+        preview_lines = [
+            f"<h3>Dry Run Preview: {name}</h3>",
+            f"<p><b>Episodes to add:</b> {len(episode_ids)}</p>",
+            "<hr>",
+            "<p><b>Episodes:</b></p>",
+            "<ul>"
+        ]
+        
+        try:
+            for ep_id in episode_ids[:20]:  # Show first 20
+                try:
+                    episode = self.plex_client.server.fetchItem(int(ep_id))
+                    show = episode.grandparentTitle
+                    season = episode.parentIndex
+                    ep_num = episode.index
+                    title = episode.title
+                    preview_lines.append(
+                        f"<li>{show} - {season}x{ep_num:02d} - {title}</li>"
+                    )
+                except Exception as e:
+                    preview_lines.append(f"<li>Error loading episode {ep_id}</li>")
+            
+            if len(episode_ids) > 20:
+                preview_lines.append(f"<li>... and {len(episode_ids) - 20} more</li>")
+            
+            preview_lines.append("</ul>")
+            preview_lines.append("<hr>")
+            preview_lines.append("<p>Click 'Create Playlist' to proceed.</p>")
+            
+            QMessageBox.information(
+                self,
+                "Dry Run Preview",
+                "\n".join(preview_lines)
+            )
+        
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error generating preview: {str(e)}")
