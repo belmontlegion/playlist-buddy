@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "playlist-buddy"
+version = "0.1.0"
+description = "A robust desktop GUI tool for creating and managing Plex playlists"
+authors = [{name = "Scott McKay", email = "scott@example.com"}]
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "PyQt6>=6.6.0",
+    "requests>=2.31.0",
+    "cryptography>=41.0.0",
+    "plexapi>=4.15.0",
+    "tmdbv3api>=1.9.0",
+    "Pillow>=10.1.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-qt>=4.2.0",
+    "black>=23.11.0",
+    "flake8>=6.1.0",
+    "mypy>=1.7.0",
+]
+
+[project.scripts]
+playlist-buddy = "src.main:main"
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
